@@ -1,12 +1,17 @@
 __includes ["ANN.nls"]
 
+breed [ANN:robots ANN:robot]
 
 globals
 [
   p-valids   ; Valid Patches for moving not wall)
-  Start      ; Starting patch
   Final-Cost ; The final cost of the path given by A*
-  goal
+  data-train    ; List of pairs [Input Output] to train the network
+  data-test
+  inputs       ; List with the binary inputs in the training
+  outputs      ; List with the binary output in the training
+  epoch-error  ; error in every epoch during training
+  Goal
 ]
 
 patches-own
@@ -19,30 +24,16 @@ patches-own
              ; we must consider it because its children have not been explored
 ]
 
+
+
 ; Prepares the world and starting point
 to setup
   ca
-  ; Initial values of patches for A*
-  ask patches
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-  ; Generation of random obstacles
-  ask n-of 100 patches
-  [
-    set pcolor brown
-    ask patches in-radius random 10 [set pcolor brown]
-  ]
-  ; Se the valid patches (not wall)
-  set p-valids patches with [pcolor != brown]
-  ; Create a random start
-  set Start one-of p-valids
-  ask Start [
-    set pcolor white
-    ask neighbors [set pcolor white]
+  setup-Patches
+  let start one-of patches
+  create-ANN:robots 2 [
+    move-to Start
+    set size 2
   ]
   ; Create a turtle to draw the path (when found)
   crt 1
@@ -52,15 +43,131 @@ to setup
     set pen-size 2
     set shape "square"
   ]
+  ANN:create read-from-string Network
 
-      ; Take one random Goal
+
+end
+
+to findWay
+  let start 0
+  ask ANN:robot 0[
+    set start patch-here]
+  print start
+  let pos getOutput start
+  print pos
+   ask ANN:robot 0[
+    set heading towards pos
+    move-to pos
+    print heading
+  ]
+end
+
+
+to setup-patches
+  ; Generation of random obstacles
+  ask n-of 100 patches
+  [
+    set pcolor brown
+    ask patches in-radius random 5 [set pcolor brown]
+  ]
+
+ ; Se the valid patches (not wall)
+  set p-valids patches with [pcolor != brown]
+
+    ; Take one random Goal
   set Goal one-of p-valids
+
   ask Goal [
     set pcolor red
     ask neighbors [set pcolor red]
   ]
+
 end
 
+to-report cat-to-bin [v L]
+  let pos position v L
+  report replace-item pos (n-values (length L) [0]) 1
+end
+
+; Plot the train error in every step
+to ANN:external-update [params]
+  set-current-plot-pen "Train"
+  plotxy (first params) (last params)
+  set-current-plot-pen "Test"
+  plotxy (first params) test
+end
+
+
+;;; Train and Test Procedures
+
+to train
+  ANN:train number-of-epochs Batch create-training-data Learning-rate
+  let move ANN:compute [list xcor ycor] of ANN:robot 0
+  ask ANN:robot 0 [
+    set heading (move * 360)
+    ;move-to output
+    forward 1
+  ]
+end
+
+to-report create-training-data
+  let xPos 0
+  let yPos 0
+  let start 0
+  ask ANN:robot 0 [
+    set xPos xcor
+    set yPos ycor
+    set start  patch-here]
+  let output getOutput start
+  ask ANN:robot 1 [
+    set heading towards output
+    ;print heading
+    set output heading
+  ]
+
+  report (list (list xPos yPos) (output / 360))
+end
+
+to-report test
+  let suma sum (map [d -> (dif (discretize ANN:compute (first d)) (last d))] data-test)
+;  let suma sum (map [d -> (dif (ANN:compute (first d)) (last d))] data-test)
+  report suma / (length data-test)
+end
+
+to-report dif [v1 v2]
+  report 0.5 * sum (map [[x y] -> abs (x - y)] v1 v2)
+end
+
+to-report discretize [x]
+  let mmax max x
+  report map [ i -> ifelse-value (i = mmax) [1][0]] x
+end
+
+
+
+
+to-report getOutput [Start]
+   ; Initial values of patches for A*
+  ask patches
+  [
+    set father nobody
+    set Cost-path 0
+    set visited? false
+    set active? false
+  ]
+
+  ask Start [
+    set pcolor white
+    ask neighbors [set pcolor white]
+  ]
+
+    ; Compute the path between Start and Goal
+  let path  A* Start Goal p-valids
+  ; If any...
+
+  report  item 1 path
+
+end
 ; Patch report to estimate the total expected cost of the path starting from
 ; in Start, passing through it, and reaching the #Goal
 to-report Total-expected-cost [#Goal]
@@ -174,36 +281,8 @@ to-report A* [#Start #Goal #valid-map]
   ]
 end
 
-; Axiliary procedure to lunch the A* algorithm between random patches
-to Look-for-Goal
-  ; Compute the path between Start and Goal
-  let path  A* Start Goal p-valids
-  ; If any...
-  if path != false [
-    ; Take a random color to the drawer turtle
-    ask turtle 0 [set color (lput 150 (n-values 3 [100 + random 155]))]
-    ; Move the turtle on the path stamping its shape in every patch
-    foreach path [ p ->
-      ask turtle 0 [
-        move-to p
-        stamp] ]
-  ]
-end
 
-; Auxiliary procedure to clear the paths in the world
-to clean
-  cd
-  ask patches with [pcolor != black and pcolor != brown] [set pcolor black]
-  ask Start [set pcolor white]
-end
 
-; Plot the train error in every step
-to ANN:external-update [params]
-  set-current-plot-pen "Train"
-  plotxy (first params) (last params)
-  set-current-plot-pen "Test"
-  ;plotxy (first params) test
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -255,7 +334,114 @@ BUTTON
 185
 73
 A*-search
-Look-for-Goal
+findWay
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+INPUTBOX
+631
+29
+862
+89
+Network
+[2 5 1]
+1
+0
+String
+
+PLOT
+636
+110
+836
+260
+Error vs. Epochs
+Epochs
+Error
+0.0
+10.0
+0.0
+0.5
+true
+true
+"" ""
+PENS
+"Test" 1.0 0 -2674135 true "" ""
+"Train" 1.0 0 -16777216 true "" ""
+
+SLIDER
+19
+97
+191
+130
+Learning-rate
+Learning-rate
+0
+1
+0.1
+1.0E-2
+1
+NIL
+HORIZONTAL
+
+SLIDER
+16
+143
+188
+176
+Number-of-epochs
+Number-of-epochs
+0
+2000
+775.0
+25
+1
+NIL
+HORIZONTAL
+
+SLIDER
+17
+193
+189
+226
+Batch
+Batch
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+23
+247
+195
+280
+Train-Test
+Train-Test
+0
+100
+57.0
+1
+1
+%
+HORIZONTAL
+
+BUTTON
+25
+297
+88
+330
+NIL
+train
 NIL
 1
 T
