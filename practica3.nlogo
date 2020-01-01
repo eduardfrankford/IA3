@@ -14,6 +14,7 @@ globals
   Goal
   origin
   wayfound?
+  numTotal
 ]
 
 patches-own
@@ -32,21 +33,44 @@ patches-own
 to setup
   ca
   setup-Patches
-  set wayfound? false
-  let start one-of p-valids
+
+
+  set wayfound? false ;variable to mark end of search
+  let start one-of p-valids ;choose one patch to start on
+
+  ;create agent to show training of neural network
   create-ANN:robots 1 [
     move-to Start
     set size 2
   ]
+
+  ;origin is needed when neural network agent reaches an invalid patch so we can reset position of agent to start point
   set origin start
-  ; Create a turtle to draw the path (when found)
-  crt 1
+
+  ;draw optimal path from start position
+  ;in order to compare with neural network
+  ;Initial values of patches for A*
+  ask patches
   [
-    ht
-    set size 1
-    set pen-size 2
-    set shape "square"
+    set father nobody
+    set Cost-path 0
+    set visited? false
+    set active? false
   ]
+
+  ask Start [
+    set pcolor white
+  ]
+  let path  A* Start Goal p-valids
+    if path != false [
+    ; Take a random color to the drawer turtle
+    ask turtle 0 [set color (lput 150 (n-values 3 [100 + random 155]))]
+    ; Move the turtle on the path stamping its shape in every patch
+    foreach path [ p ->
+      ask p [
+        set pcolor yellow] ]
+  ]
+
   ANN:create read-from-string Network
 
 
@@ -74,7 +98,7 @@ to setup-patches
     set pcolor brown
     ask patches in-radius random 5 [set pcolor brown]
   ]
-
+;Generation of border in order to show neural network where the field ends
  ask patches with [
     pxcor = max-pxcor or
     pxcor = min-pxcor or
@@ -103,17 +127,21 @@ end
 ; Plot the train error in every step
 to ANN:external-update [params]
   set-current-plot-pen "Train"
-  plotxy (first params) (last params)
+  set numTotal (first params + numTotal)
+  plotxy (numTotal) (last params)
   set-current-plot-pen "Test"
   plotxy (first params) test
 end
 
 
 ;;; Train and Test Procedures
-
+;train method
+;1. call method to create training data
+; then check if way already found -> if not go and train neural network and do move
+;neural network gets as input the current position of agent then returns a direction
 to train
-  if wayfound? false [
-    set data-test create-training-data
+  set data-test create-training-data
+  if wayfound? = false [
     ANN:train number-of-epochs Batch data-test Learning-rate
     let move first ANN:compute [list xcor ycor] of ANN:robot 0
     ask ANN:robot 0 [
@@ -147,6 +175,7 @@ to-report create-training-data
   if output = Goal [
     show "Way found"
      set wayfound? true
+        report 0
   ]
 
   if output = false [
@@ -199,9 +228,9 @@ to-report getOutput [Start]
 
     ; Compute the path between Start and Goal
   let path  A* Start Goal p-valids
-  if path != false and length path > 2 [
+  if path != false and length path >= 2 [
     report  item 1 path ]
-  if length path = 1 [
+  if path != false and  length path = 1 [
     report Goal
   ]
   report path
@@ -318,7 +347,6 @@ to-report A* [#Start #Goal #valid-map]
     report false
   ]
 end
-
 
 
 @#$#@#$#@
