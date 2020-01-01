@@ -12,6 +12,8 @@ globals
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
   Goal
+  origin
+  wayfound?
 ]
 
 patches-own
@@ -30,10 +32,13 @@ patches-own
 to setup
   ca
   setup-Patches
+  set wayfound? false
+  let start one-of p-valids
   create-ANN:robots 1 [
     move-to Start
     set size 2
   ]
+  set origin start
   ; Create a turtle to draw the path (when found)
   crt 1
   [
@@ -43,6 +48,50 @@ to setup
     set shape "square"
   ]
   ANN:create read-from-string Network
+
+
+end
+
+to findWay
+  let start 0
+  ask ANN:robot 0[
+    set start patch-here]
+  print start
+  let pos getOutput start
+  print pos
+   ask ANN:robot 0[
+    set heading towards pos
+    move-to pos
+    print heading
+  ]
+end
+
+
+to setup-patches
+  ; Generation of random obstacles
+  ask n-of 100 patches
+  [
+    set pcolor brown
+    ask patches in-radius random 5 [set pcolor brown]
+  ]
+
+ ask patches with [
+    pxcor = max-pxcor or
+    pxcor = min-pxcor or
+    pycor = max-pycor or
+    pycor = min-pycor ] [
+    set pcolor brown ;; This setup a red perimeter
+  ]
+ ; Se the valid patches (not wall)
+  set p-valids patches with [pcolor != brown]
+
+    ; Take one random Goal
+  set Goal one-of p-valids
+
+  ask Goal [
+    set pcolor red
+    ask neighbors [set pcolor red]
+  ]
 
 end
 
@@ -63,18 +112,56 @@ end
 ;;; Train and Test Procedures
 
 to train
-  ANN:train number-of-epochs Batch create-training-data Learning-rate
+  if wayfound? false [
+    set data-test create-training-data
+    ANN:train number-of-epochs Batch data-test Learning-rate
+    let move first ANN:compute [list xcor ycor] of ANN:robot 0
+    ask ANN:robot 0 [
+      set heading (move * 360)
+      ;move-to output
+      forward 1
+    ]
+  ]
 end
 
-to create-training-data
+to-report create-training-data
   let xPos 0
   let yPos 0
-  ask ANN:robot 1 [
+  let start 0
+  ask ANN:robot 0 [
     set xPos xcor
-    set yPos ycor ]
-  let output (getOutput patch-here Goal)
-  print patch-here
-  print output
+    set yPos ycor
+    set start  patch-here]
+  let output getOutput start
+  if output != false and output != Goal [
+
+    ask ANN:robot 0 [
+
+      if patch-here != output [
+        set heading towards output]
+      ;print heading
+      set output heading
+      ]
+
+    ]
+  if output = Goal [
+    show "Way found"
+     set wayfound? true
+  ]
+
+  if output = false [
+    ask ANN:robot 0 [
+      move-to origin
+      set xPos xcor
+      set yPos ycor
+      set heading towards Goal
+      set output heading
+    ]
+  ]
+
+
+
+  report (list (list (list xPos yPos) (list (output / 360))))
 end
 
 to-report test
@@ -93,26 +180,8 @@ to-report discretize [x]
 end
 
 
-to setup-patches
-  ; Generation of random obstacles
-  ask n-of 100 patches
-  [
-    set pcolor brown
-    ask patches in-radius random 5 [set pcolor brown]
-  ]
 
- ; Se the valid patches (not wall)
-  set p-valids patches with [pcolor != brown]
 
-    ; Take one random Goal
-  set Goal one-of p-valids
-
-  ask Goal [
-    set pcolor red
-    ask neighbors [set pcolor red]
-  ]
-
-end
 to-report getOutput [Start]
    ; Initial values of patches for A*
   ask patches
@@ -125,23 +194,17 @@ to-report getOutput [Start]
 
   ask Start [
     set pcolor white
-    ask neighbors [set pcolor white]
+    ;ask neighbors [set pcolor white]
   ]
 
     ; Compute the path between Start and Goal
   let path  A* Start Goal p-valids
-  ; If any...
-  if path != false [
-    ; Take a random color to the drawer turtle
-    ask turtle 0 [set color (lput 150 (n-values 3 [100 + random 155]))]
-    ; Move the turtle on the path stamping its shape in every patch
-    foreach path [ p ->
-      ask turtle 0 [
-        move-to p
-        stamp] ]
+  if path != false and length path > 2 [
+    report  item 1 path ]
+  if length path = 1 [
+    report Goal
   ]
-  return first p
-
+  report path
 end
 ; Patch report to estimate the total expected cost of the path starting from
 ; in Start, passing through it, and reaching the #Goal
@@ -257,12 +320,6 @@ to-report A* [#Start #Goal #valid-map]
 end
 
 
-; Auxiliary procedure to clear the paths in the world
-to clean
-  cd
-  ask patches with [pcolor != black and pcolor != brown] [set pcolor black]
-  ask Start [set pcolor white]
-end
 
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -315,7 +372,7 @@ BUTTON
 185
 73
 A*-search
-Look-for-Goal
+findWay
 NIL
 1
 T
@@ -415,6 +472,23 @@ Train-Test
 1
 %
 HORIZONTAL
+
+BUTTON
+25
+297
+88
+330
+NIL
+train
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?

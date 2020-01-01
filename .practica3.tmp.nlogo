@@ -12,6 +12,8 @@ globals
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
   Goal
+  origin
+  wayfound?
 ]
 
 patches-own
@@ -30,11 +32,13 @@ patches-own
 to setup
   ca
   setup-Patches
-  let start one-of patches
-  create-ANN:robots 2 [
+  set wayfound? false
+  let start one-of p-valids
+  create-ANN:robots 1 [
     move-to Start
     set size 2
   ]
+  set origin start
   ; Create a turtle to draw the path (when found)
   crt 1
   [
@@ -71,6 +75,13 @@ to setup-patches
     ask patches in-radius random 5 [set pcolor brown]
   ]
 
+ ask patches with [
+    pxcor = max-pxcor or
+    pxcor = min-pxcor or
+    pycor = max-pycor or
+    pycor = min-pycor ] [
+    set pcolor brown ;; This setup a red perimeter
+  ]
  ; Se the valid patches (not wall)
   set p-valids patches with [pcolor != brown]
 
@@ -101,13 +112,19 @@ end
 ;;; Train and Test Procedures
 
 to train
-  ANN:train number-of-epochs Batch create-training-data Learning-rate
-  let move ANN:compute [list xcor ycor] of ANN:robot 0
-  ask ANN:robot 0 [
-    set heading (move * 360)
-    ;move-to output
-    forward 1
+    set data-test create-training-data
+    ifelse wayfound? = false [
+    ANN:train number-of-epochs Batch data-test Learning-rate
+    let move first ANN:compute [list xcor ycor] of ANN:robot 0
+    ask ANN:robot 0 [
+      set heading (move * 360)
+      ;move-to output
+      forward 1
+    ]
+  ][
+  print "Way found!!!"
   ]
+
 end
 
 to-report create-training-data
@@ -119,13 +136,36 @@ to-report create-training-data
     set yPos ycor
     set start  patch-here]
   let output getOutput start
-  ask ANN:robot 1 [
-    set heading towards output
-    ;print heading
-    set output heading
+  if output != false and output != Goal [
+
+    ask ANN:robot 0 [
+
+      if patch-here != output [
+        set heading towards output]
+      ;print heading
+      set output heading
+      ]
+
+    ]
+  if output = Goal [
+    show "Way found"
+     set wayfound? true
+
   ]
 
-  report (list (list xPos yPos) (output / 360))
+  if output = false [
+    ask ANN:robot 0 [
+      move-to origin
+      set xPos xcor
+      set yPos ycor
+      set heading towards Goal
+      set output heading
+    ]
+  ]
+
+
+
+  report (list (list (list xPos yPos) (list (output / 360))))
 end
 
 to-report test
@@ -158,15 +198,17 @@ to-report getOutput [Start]
 
   ask Start [
     set pcolor white
-    ask neighbors [set pcolor white]
+    ;ask neighbors [set pcolor white]
   ]
 
     ; Compute the path between Start and Goal
   let path  A* Start Goal p-valids
-  ; If any...
-
-  report  item 1 path
-
+  if path != false and length path > 1 [
+    report  item 1 path ]
+  if path != false and length path = 1 [
+    report Goal
+  ]
+  report path
 end
 ; Patch report to estimate the total expected cost of the path starting from
 ; in Start, passing through it, and reaching the #Goal
@@ -384,7 +426,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.1
+0.08
 1.0E-2
 1
 NIL
@@ -442,7 +484,7 @@ BUTTON
 330
 NIL
 train
-NIL
+T
 1
 T
 OBSERVER
