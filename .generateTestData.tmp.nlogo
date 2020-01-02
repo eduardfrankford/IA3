@@ -1,353 +1,56 @@
-__includes ["ANN.nls"]
-
-breed [ANN:robots ANN:robot]
-
-globals
-[
-  p-valids   ; Valid Patches for moving not wall)
-  Final-Cost ; The final cost of the path given by A*
-  data-train    ; List of pairs [Input Output] to train the network
-  data-test
-  inputs       ; List with the binary inputs in the training
-  outputs      ; List with the binary output in the training
-  epoch-error  ; error in every epoch during training
-  Goal
-  origin
-  wayfound?
-  numTotal
-]
-
-patches-own
-[
-  father     ; Previous patch in this partial path
-  Cost-path  ; Stores the cost of the path to the current patch
-  visited?   ; has the path been visited previously? That is,
-             ; at least one path has been calculated going through this patch
-  active?    ; is the patch active? That is, we have reached it, but
-             ; we must consider it because its children have not been explored
-]
-
-
-
 ; Prepares the world and starting point
 to setup
   ca
-  setup-Patches
-
-
-  set wayfound? false ;variable to mark end of search
-  let start one-of p-valids ;choose one patch to start on
-
-  ;create agent to show training of neural network
-  create-ANN:robots 1 [
-    move-to Start
-    set size 2
+  ask patches [
+   set pcolor white
   ]
-
-  ;origin is needed when neural network agent reaches an invalid patch so we can reset position of agent to start point
-  set origin start
-
-  ;draw optimal path from start position
-  ;in order to compare with neural network
-  ;Initial values of patches for A*
-  ask patches
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-
-  ask Start [
-    set pcolor white
-  ]
-  let path  A* Start Goal p-valids
-    if path != false [
-    ; Take a random color to the drawer turtle
-    ask turtle 0 [set color (lput 150 (n-values 3 [100 + random 155]))]
-    ; Move the turtle on the path stamping its shape in every patch
-    foreach path [ p ->
-      ask p [
-        set pcolor yellow] ]
-  ]
-
-  ANN:create read-from-string Network
-
-
-end
-
-to findWay
-  let start 0
-  ask ANN:robot 0[
-    set start patch-here]
-  print start
-  let pos getOutput start
-  print pos
-   ask ANN:robot 0[
-    set heading towards pos
-    move-to pos
-    print heading
-  ]
-end
-
-
-to setup-patches
-  ; Generation of random obstacles
-  ask n-of 100 patches
-  [
-    set pcolor brown
-    ask patches in-radius random 5 [set pcolor brown]
-  ]
-;Generation of border in order to show neural network where the field ends
- ask patches with [
-    pxcor = max-pxcor or
-    pxcor = min-pxcor or
-    pycor = max-pycor or
-    pycor = min-pycor ] [
-    set pcolor brown ;; This setup a red perimeter
-  ]
- ; Se the valid patches (not wall)
-  set p-valids patches with [pcolor != brown]
-
-    ; Take one random Goal
-  set Goal one-of p-valids
-
-  ask Goal [
-    set pcolor red
-    ask neighbors [set pcolor red]
+  create-turtles 1 [
+   move-to (patch 0 0)
   ]
 
 end
 
-to-report cat-to-bin [v L]
-  let pos position v L
-  report replace-item pos (n-values (length L) [0]) 1
-end
+to generate-data
+  let theta0 0
+  let theta1 0
+  let theta2 0
+  let output []
+  let input []
+  let data []
+  let length0 0
+  let length1 0
+  let length2 0
 
-; Plot the train error in every step
-to ANN:external-update [params]
-  set-current-plot-pen "Train"
-  set numTotal (first params + numTotal)
-  plotxy (numTotal) (last params)
-  set-current-plot-pen "Test"
-  plotxy (first params) test
-end
-
-
-;;; Train and Test Procedures
-;train method
-;1. call method to create training data
-; then check if way already found -> if not go and train neural network and do move
-;neural network gets as input the current position of agent then returns a direction
-to train
-  set data-test create-training-data
-  if wayfound? = false [
-    ANN:train number-of-epochs Batch data-test Learning-rate
-    let move first ANN:compute [list xcor ycor] of ANN:robot 0
-    ask ANN:robot 0 [
-      set heading (move * 360)
-      ;move-to output
-      forward 1
-    ]
-  ]
-end
-
-to-report create-training-data
-  let xPos 0
-  let yPos 0
-  let start 0
-  ask ANN:robot 0 [
-    set xPos xcor
-    set yPos ycor
-    set start  patch-here]
-  let output getOutput start
-  if output != false and output != Goal [
-
-    ask ANN:robot 0 [
-
-      if patch-here != output [
-        set heading towards output]
-      ;print heading
-      set output heading
-      ]
+  repeat 10 [
+    set theta0 (random 360)
+    set theta1 (random 360)
+    set theta2 (random 360)
+    set length0 (random 33)
+    set length1 (random 33)
+    set length2 (random 33)
+    ask turtle 0 [
+     pen-down
+     set heading theta0
+     forward length0
+     set heading theta1
+     forward length1
+     set heading theta2
+     forward length2
+      set output (list theta0 theta1 theta2 length0 length1 length2)
+      set input (list xcor ycor)
+      set data lput data (list input output)
+      pen-up
+      move-to patch 0 0
+      wait 1
 
     ]
-  if output = Goal [
-    show "Way found"
-     set wayfound? true
-        report 0
+    cd
   ]
-
-  if output = false [
-    ask ANN:robot 0 [
-      move-to origin
-      set xPos xcor
-      set yPos ycor
-      set heading towards Goal
-      set output heading
-    ]
-  ]
+  print data
 
 
 
-  report (list (list (list xPos yPos) (list (output / 360))))
 end
-
-to-report test
-  let suma sum (map [d -> (dif (discretize ANN:compute (first d)) (last d))] data-test)
-;  let suma sum (map [d -> (dif (ANN:compute (first d)) (last d))] data-test)
-  report suma / (length data-test)
-end
-
-to-report dif [v1 v2]
-  report 0.5 * sum (map [[x y] -> abs (x - y)] v1 v2)
-end
-
-to-report discretize [x]
-  let mmax max x
-  report map [ i -> ifelse-value (i = mmax) [1][0]] x
-end
-
-
-
-
-to-report getOutput [Start]
-   ; Initial values of patches for A*
-  ask patches
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-
-  ask Start [
-    set pcolor white
-    ;ask neighbors [set pcolor white]
-  ]
-
-    ; Compute the path between Start and Goal
-  let path  A* Start Goal p-valids
-  if path != false and length path >= 2 [
-    report  item 1 path ]
-  if path != false and  length path = 1 [
-    report Goal
-  ]
-  report path
-end
-; Patch report to estimate the total expected cost of the path starting from
-; in Start, passing through it, and reaching the #Goal
-to-report Total-expected-cost [#Goal]
-  report Cost-path + Heuristic #Goal
-end
-
-; Patch report to reurtn the heuristic (expected length) from the current patch
-; to the #Goal
-to-report Heuristic [#Goal]
-  report distance #Goal
-end
-
-; A* algorithm. Inputs:
-;   - #Start     : starting point of the search.
-;   - #Goal      : the goal to reach.
-;   - #valid-map : set of agents (patches) valid to visit.
-; Returns:
-;   - If there is a path : list of the agents of the path.
-;   - Otherwise          : false
-
-to-report A* [#Start #Goal #valid-map]
-  ; clear all the information in the agents
-  ask #valid-map with [visited?]
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-  ; Active the staring point to begin the searching loop
-  ask #Start
-  [
-    set father self
-    set visited? true
-    set active? true
-  ]
-  ; exists? indicates if in some instant of the search there are no options to
-  ; continue. In this case, there is no path connecting #Start and #Goal
-  let exists? true
-  ; The searching loop is executed while we don't reach the #Goal and we think
-  ; a path exists
-  while [not [visited?] of #Goal and exists?]
-  [
-    ; We only work on the valid pacthes that are active
-    let options #valid-map with [active?]
-    ; If any
-    ifelse any? options
-    [
-      ; Take one of the active patches with minimal expected cost
-      ask min-one-of options [Total-expected-cost #Goal]
-      [
-        ; Store its real cost (to reach it) to compute the real cost
-        ; of its children
-        let Cost-path-father Cost-path
-        ; and deactivate it, because its children will be computed right now
-        set active? false
-        ; Compute its valid neighbors
-        let valid-neighbors neighbors with [member? self #valid-map]
-        ask valid-neighbors
-        [
-          ; There are 2 types of valid neighbors:
-          ;   - Those that have never been visited (therefore, the
-          ;       path we are building is the best for them right now)
-          ;   - Those that have been visited previously (therefore we
-          ;       must check if the path we are building is better or not,
-          ;       by comparing its expected length with the one stored in
-          ;       the patch)
-          ; One trick to work with both type uniformly is to give for the
-          ; first case an upper bound big enough to be sure that the new path
-          ; will always be smaller.
-          let t ifelse-value visited? [ Total-expected-cost #Goal] [2 ^ 20]
-          ; If this temporal cost is worse than the new one, we substitute the
-          ; information in the patch to store the new one (with the neighbors
-          ; of the first case, it will be always the case)
-          if t > (Cost-path-father + distance myself + Heuristic #Goal)
-          [
-            ; The current patch becomes the father of its neighbor in the new path
-            set father myself
-            set visited? true
-            set active? true
-            ; and store the real cost in the neighbor from the real cost of its father
-            set Cost-path Cost-path-father + distance father
-            set Final-Cost precision Cost-path 3
-          ]
-        ]
-      ]
-    ]
-    ; If there are no more options, there is no path between #Start and #Goal
-    [
-      set exists? false
-    ]
-  ]
-  ; After the searching loop, if there exists a path
-  ifelse exists?
-  [
-    ; We extract the list of patches in the path, form #Start to #Goal
-    ; by jumping back from #Goal to #Start by using the fathers of every patch
-    let current #Goal
-    set Final-Cost (precision [Cost-path] of #Goal 3)
-    let rep (list current)
-    While [current != #Start]
-    [
-      set current [father] of current
-      set rep fput current rep
-    ]
-    report rep
-  ]
-  [
-    ; Otherwise, there is no path, and we return False
-    report false
-  ]
-end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -377,10 +80,10 @@ ticks
 30.0
 
 BUTTON
-20
-40
-83
-73
+16
+21
+79
+54
 NIL
 setup
 NIL
@@ -394,120 +97,13 @@ NIL
 1
 
 BUTTON
-97
-40
-185
-73
-A*-search
-findWay
+91
+21
+203
+54
 NIL
-1
-T
-OBSERVER
+generate-data
 NIL
-NIL
-NIL
-NIL
-1
-
-INPUTBOX
-631
-29
-862
-89
-Network
-[2 5 1]
-1
-0
-String
-
-PLOT
-636
-110
-836
-260
-Error vs. Epochs
-Epochs
-Error
-0.0
-10.0
-0.0
-0.5
-true
-true
-"" ""
-PENS
-"Test" 1.0 0 -2674135 true "" ""
-"Train" 1.0 0 -16777216 true "" ""
-
-SLIDER
-19
-97
-191
-130
-Learning-rate
-Learning-rate
-0
-1
-0.1
-1.0E-2
-1
-NIL
-HORIZONTAL
-
-SLIDER
-16
-143
-188
-176
-Number-of-epochs
-Number-of-epochs
-0
-2000
-775.0
-25
-1
-NIL
-HORIZONTAL
-
-SLIDER
-17
-193
-189
-226
-Batch
-Batch
-0
-100
-50.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-23
-247
-195
-280
-Train-Test
-Train-Test
-0
-100
-57.0
-1
-1
-%
-HORIZONTAL
-
-BUTTON
-25
-297
-88
-330
-NIL
-train
-T
 1
 T
 OBSERVER
