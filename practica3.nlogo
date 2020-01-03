@@ -348,7 +348,6 @@ to-report A* [#Start #Goal #valid-map]
   ]
 end
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210

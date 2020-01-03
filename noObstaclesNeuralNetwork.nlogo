@@ -1,16 +1,42 @@
+
+__includes ["ANN.nls"]
+
+
+globals [
+  data-train    ; List of pairs [Input Output] to train the network
+  data-test
+  inputs       ; List with the binary inputs in the training
+  outputs      ; List with the binary output in the training
+  epoch-error  ; error in every epoch during training
+]
+
+
 ; Prepares the world and starting point
 to setup
   ca
   ask patches [
    set pcolor white
   ]
+
   create-turtles 1 [
    move-to (patch 0 0)
   ]
 
+  let data generate-data
+  ; Train Dataset
+
+  let sdtrain floor (length data) * Train-Test / 100
+
+  set data-train sublist data 0 sdtrain
+
+  ; Test Dataset
+  set data-test sublist data sdtrain (length data)
+  ANN:create read-from-string Network
+
+
 end
 
-to generate-data
+to-report generate-data
   let theta0 0
   let theta1 0
   let theta2 0
@@ -21,42 +47,103 @@ to generate-data
   let length1 0
   let length2 0
 
-  repeat 10 [
+  repeat num [
     set theta0 (random 360)
     set theta1 (random 360)
     set theta2 (random 360)
-    set length0 (random 33)
-    set length1 (random 33)
-    set length2 (random 33)
-    ask turtle 0 [
+    set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
+   ask turtle 0 [
      pen-down
-     set heading theta0
-     forward length0
-     set heading theta1
-     forward length1
-     set heading theta2
-     forward length2
-      set output (list theta0 theta1 theta2 length0 length1 length2)
-      set input (list xcor ycor)
-      set data lput data (list input output)
+     foreach output [theta -> set heading theta * 360
+      forward lenArmSegment
+      ]
+      set input (list (xcor) (ycor))
+      ask patch-here [
+        set pcolor red
+      ]
+      print (list input output)
+      set data lput (list input output) data
       pen-up
       move-to patch 0 0
-      wait 1
-
+    ]
     ]
     cd
+
+  wait 2
+  ask patches [
+   set pcolor white
   ]
-  print data
+  output-print data
+  report data
 
 
+end
 
+to test-visualize [x y]
+  ask patch x y [set pcolor red]
+  let result ANN:compute list x y
+   ask turtle 0 [
+     pen-down
+     foreach result [theta -> set heading theta * 360
+      forward lenArmSegment
+    ]
+    pu
+    ask patch-here [set pcolor blue]
+          move-to patch 0 0
+
+  ]
+
+end
+
+to visualize-random-samples
+  repeat 5 [
+    let result item (random (length data-test)) data-test
+    test-visualize first (first result) last (first result)
+    wait 2
+    ask patches [ set pcolor white]
+    cd
+  ]
+end
+
+to-report cat-to-bin [v L]
+  let pos position v L
+  report replace-item pos (n-values (length L) [0]) 1
+end
+
+; Plot the train error in every step
+to ANN:external-update [params]
+  set-current-plot-pen "Train"
+  plotxy (first params) (last params)
+  set-current-plot-pen "Test"
+  plotxy (first params) test
+end
+
+;;; Train and Test Procedures
+
+to train
+  ANN:train number-of-epochs Batch data-test Learning-rate
+end
+
+to-report test
+  ;let suma sum (map [d -> (dif (discretize ANN:compute (first d)) (last d))] data-test)
+  let suma sum (map [d -> (dif (ANN:compute (first d)) (last d))] data-test)
+  report suma / (length data-test)
+end
+
+to-report dif [v1 v2]
+  report 0.5 * sum (map [[x y] -> abs (x - y)] v1 v2)
+end
+
+to-report discretize [x]
+  let mmax max x
+  report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-1022
-823
+622
+423
 -1
 -1
 4.0
@@ -69,10 +156,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--100
-100
--100
-100
+-50
+50
+-50
+50
 0
 0
 1
@@ -96,13 +183,174 @@ NIL
 NIL
 1
 
-BUTTON
-91
-21
-203
-54
+SLIDER
+653
+137
+825
+170
+num
+num
+10
+5000
+1536.0
+1
+1
 NIL
-generate-data
+HORIZONTAL
+
+SLIDER
+652
+93
+824
+126
+lenArmSegment
+lenArmSegment
+1
+10
+10.0
+0.1
+1
+NIL
+HORIZONTAL
+
+OUTPUT
+644
+10
+1471
+64
+11
+
+SLIDER
+17
+68
+189
+101
+Learning-rate
+Learning-rate
+0
+1
+0.05
+1.0E-2
+1
+NIL
+HORIZONTAL
+
+SLIDER
+17
+108
+189
+141
+Number-of-epochs
+Number-of-epochs
+0
+2000
+350.0
+25
+1
+NIL
+HORIZONTAL
+
+SLIDER
+22
+150
+194
+183
+Batch
+Batch
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+15
+196
+187
+229
+Train-Test
+Train-Test
+0
+100
+90.0
+1
+1
+%
+HORIZONTAL
+
+INPUTBOX
+17
+242
+194
+302
+Network
+[2 5 3]
+1
+0
+String
+
+PLOT
+3
+308
+203
+458
+Error vs. Epochs
+Epochs
+Error
+0.0
+10.0
+0.0
+0.5
+true
+false
+"" ""
+PENS
+"Test" 1.0 0 -2674135 true "" ""
+"Train" 1.0 0 -16777216 true "" ""
+
+BUTTON
+22
+481
+85
+514
+NIL
+train
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+96
+481
+182
+514
+NIL
+show test
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+202
+483
+374
+516
+NIL
+visualize-random-samples
 NIL
 1
 T
