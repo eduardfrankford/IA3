@@ -1,4 +1,4 @@
-__includes ["ANN.nls"]
+__includes ["ANN.nls" ]
 
 
 globals [
@@ -21,6 +21,7 @@ to setup
    move-to (patch 0 0)
   ]
 
+  setup-obstacles
   let data generate-data
   ; Train Dataset
 
@@ -35,6 +36,15 @@ to setup
 
 end
 
+to setup-obstacles
+  ; Generation of random obstacles
+  ask patches with [(pycor = 10 and pxcor < 10) or  (pycor < 9 and pxcor = 10)]
+  [
+    set pcolor brown
+  ]
+
+end
+
 to-report generate-data
   let theta0 0
   let theta1 0
@@ -42,38 +52,39 @@ to-report generate-data
   let output []
   let input []
   let data []
-  let length0 0
-  let length1 0
-  let length2 0
-  let originx 0
-  let originy 0
-
+  let invalidMove false
   repeat num [
     set theta0 (random 360)
     set theta1 (random 360)
     set theta2 (random 360)
-    set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
+    set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
    ask turtle 0 [
-      set originx xcor
-      set originy ycor
      pen-down
-     foreach output [theta -> set heading theta * 360
-      forward lenArmSegment
+     foreach output [theta -> set heading theta * normalizationFactor
+
+        repeat lenArmSegment [forward 1
+          if [pcolor] of patch-here = brown [
+          set invalidMove true
+            pu
+          ]
+        ]
       ]
-      set input (list (xcor) (ycor) originx originy)
-      ask patch-here [
-        set pcolor red
-      ]
-      print (list input output)
-      set data lput (list input output) data
-      pen-up
-      move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
+      set input (list (xcor) (ycor))
+      if invalidMove = false [
+        ask patch-here [
+          set pcolor red
+        ]
+        print (list input output)
+        set data lput (list input output) data]
+        pen-up
+      move-to patch 0 0
     ]
+    set invalidMove false
     ]
     cd
 
   wait 2
-  ask patches [
+  ask patches with [pcolor != brown ] [
    set pcolor white
   ]
   output-print data
@@ -82,17 +93,12 @@ to-report generate-data
 
 end
 
-to test-visualize [input]
-  let x item 0 input
-  let y item 1 input
-  let originx item 2 input
-  let originy item 3 input
+to test-visualize [x y]
   ask patch x y [set pcolor red]
   let result ANN:compute list x y
    ask turtle 0 [
-    move-to patch originx originy
      pen-down
-     foreach result [theta -> set heading theta * 360
+     foreach result [theta -> set heading theta * normalizationFactor
       forward lenArmSegment
     ]
     pu
@@ -106,9 +112,9 @@ end
 to visualize-random-samples
   repeat 5 [
     let result item (random (length data-test)) data-test
-    test-visualize first data-tes
+    test-visualize first (first result) last (first result)
     wait 2
-    ask patches [ set pcolor white]
+    ask patches with [pcolor != brown] [ set pcolor white]
     cd
   ]
 end
@@ -200,7 +206,7 @@ num
 num
 10
 50000
-1920.0
+328.0
 1
 1
 NIL
@@ -237,7 +243,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.05
+0.1
 1.0E-2
 1
 NIL
@@ -252,7 +258,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-100.0
+175.0
 25
 1
 NIL
@@ -282,7 +288,7 @@ Train-Test
 Train-Test
 0
 100
-85.0
+80.0
 1
 1
 %
@@ -294,7 +300,7 @@ INPUTBOX
 194
 302
 Network
-[4 10 3]
+[2 10 3]
 1
 0
 String
@@ -368,6 +374,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+390
+489
+562
+522
+normalizationFactor
+normalizationFactor
+360
+720
+720.0
+360
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

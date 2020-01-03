@@ -21,6 +21,8 @@ to setup
    move-to (patch 0 0)
   ]
 
+  setup-obstacles
+
   let data generate-data
   ; Train Dataset
 
@@ -35,36 +37,49 @@ to setup
 
 end
 
+to setup-obstacles
+  ; Generation of random obstacles
+  ask n-of 20 patches
+  [
+    set pcolor brown
+    ask patches in-radius random 5 [set pcolor brown]
+  ]
+;Generation of border in order to show neural network where the field ends
+ ask patches with [
+    pxcor = max-pxcor or
+    pxcor = min-pxcor or
+    pycor = max-pycor or
+    pycor = min-pycor ] [
+    set pcolor brown ;; This setup a red perimeter
+  ]
+
+end
+
 to-report generate-data
   let theta0 0
   let theta1 0
   let theta2 0
+  let distanceToPoint 0
   let output []
   let input []
   let data []
-  let length0 0
-  let length1 0
-  let length2 0
   let originx 0
   let originy 0
-
   repeat num [
     set theta0 (random 360)
     set theta1 (random 360)
     set theta2 (random 360)
-    set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
+    set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
    ask turtle 0 [
       set originx xcor
       set originy ycor
-     pen-down
-     foreach output [theta -> set heading theta * 360
-      forward lenArmSegment
-      ]
-      set input (list (xcor) (ycor) originx originy)
+      pen-down
+     foreach output [theta -> set heading (theta * normalizationFactor)
+      forward lenArmSegment]
+      set input (list (xcor) (ycor) originx originy (distance patch originx originy))
       ask patch-here [
         set pcolor red
       ]
-      print (list input output)
       set data lput (list input output) data
       pen-up
       move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
@@ -87,12 +102,13 @@ to test-visualize [input]
   let y item 1 input
   let originx item 2 input
   let originy item 3 input
+  let dist item 4 input
   ask patch x y [set pcolor red]
-  let result ANN:compute (list x y originx originy)
+  let result ANN:compute (list x y originx originy dist)
    ask turtle 0 [
     move-to patch originx originy
      pen-down
-     foreach result [theta -> set heading theta * 360
+    foreach result [theta -> set heading theta * normalizationFactor
       forward lenArmSegment
     ]
     pu
@@ -200,7 +216,7 @@ num
 num
 10
 50000
-1920.0
+4786.0
 1
 1
 NIL
@@ -294,7 +310,7 @@ INPUTBOX
 194
 302
 Network
-[4 10 3]
+[5 6 3]
 1
 0
 String
@@ -368,6 +384,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+397
+480
+569
+513
+normalizationFactor
+normalizationFactor
+360
+1080
+720.0
+360
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
