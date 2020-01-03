@@ -45,6 +45,8 @@ to-report generate-data
   let length0 0
   let length1 0
   let length2 0
+  let originx 0
+  let originy 0
 
   repeat num [
     set theta0 (random 360)
@@ -52,18 +54,20 @@ to-report generate-data
     set theta2 (random 360)
     set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
    ask turtle 0 [
+      set originx xcor
+      set originy ycor
      pen-down
      foreach output [theta -> set heading theta * 360
       forward lenArmSegment
       ]
-      set input (list (xcor) (ycor))
+      set input (list (xcor) (ycor) originx originy)
       ask patch-here [
         set pcolor red
       ]
       print (list input output)
       set data lput (list input output) data
       pen-up
-      move-to patch 0 0
+      move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
     ]
     ]
     cd
@@ -78,10 +82,15 @@ to-report generate-data
 
 end
 
-to test-visualize [x y]
+to test-visualize [input]
+  let x item 0 input
+  let y item 1 input
+  let originx item 2 input
+  let originy item 3 input
   ask patch x y [set pcolor red]
   let result ANN:compute list x y
    ask turtle 0 [
+    move-to patch originx originy
      pen-down
      foreach result [theta -> set heading theta * 360
       forward lenArmSegment
@@ -97,7 +106,7 @@ end
 to visualize-random-samples
   repeat 5 [
     let result item (random (length data-test)) data-test
-    test-visualize first (first result) last (first result)
+    test-visualize first data-tes
     wait 2
     ask patches [ set pcolor white]
     cd
@@ -285,7 +294,7 @@ INPUTBOX
 194
 302
 Network
-[2 10 3]
+[4 10 3]
 1
 0
 String
