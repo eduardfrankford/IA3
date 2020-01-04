@@ -7,6 +7,9 @@ globals [
   inputs       ; List with the binary inputs in the training
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
+  data
+  xstart
+  ystart
 ]
 
 
@@ -20,9 +23,12 @@ to setup
   create-turtles 1 [
    move-to (patch 0 0)
   ]
+  set xstart 0
+  set ystart 0
 
   setup-obstacles
-  let data generate-data
+  ;set data generate-data-random
+  set data generate-data-A*
   ; Train Dataset
 
   let sdtrain floor (length data) * Train-Test / 100
@@ -46,13 +52,13 @@ to setup-obstacles
 
 end
 
-to-report generate-data
+to-report generate-data-random
   let theta0 0
   let theta1 0
   let theta2 0
   let output []
   let input []
-  let data []
+  set data []
   let invalidMove false
   let alreadyInList false
   repeat num [
@@ -97,8 +103,8 @@ to-report generate-data
 
 end
 
-to-report isInput? [input data]
-   foreach data [x -> if first x = input [report true]]
+to-report isInput? [input datas]
+   foreach datas [x -> if first x = input [report true]]
    report false
 
 end
@@ -178,60 +184,83 @@ to-report AI:heuristic [#Goal]
 end
 
 to-report AI:final-state? [params]
-  report content = params
+  ;let dist 100000
+  ;ask turtle 0 [move-to patch (first content) (last content)
+  ; set dist distance patch first params last params
+  ;]
+
+  report params = content
 end
 
 to-report AI:equal? [a b]
 
-  report a = b
+  report abs sum (map - a b) < 1
 end
 
 to-report AI:children-states
   let i 0
   let states []
   let start content
-  while [i <= 360] [
+  while [i < 360] [
     move-to patch first start last start
     set heading i
     forward lenArmSegment
-    set states lput (list (list round xcor round ycor) (list start lenArmSegment i)) states
-    set i i + 30
+    if distance patch xstart ystart <= lenArmSegment * 3 [
+      set states lput (list (list xcor ycor) (list start lenArmSegment i)) states]
+    set i i + 1
   ]
+  ;print states
   report states
 end
 
 
 ; Auxiliary procedure to test the A* algorithm for sorting lists
-to testA*
-  ca
-  print (word "Initial State: " "0 0")
-
-  no-display
+to-report testA* [xGoal yGoal]
+  let output []
   ; We compute the path with A*
-  let path (A* (list 0 0) (list 3 0) True True)
-  print path
- layout-radial AI:states AI:transitions AI:state 0
-  style
-  display
-  ; if any, we highlight it
+  let path (A* (list xStart yStart) (list xGoal yGoal) False False)
   if path != false [
-    ;repeat 1000 [layout-spring states links 1 3 .3]
-    highlight-path path
     print (word "Actions to reach point: " (map [ s -> [rule] of s ] path))
+    foreach path [s -> set output lput (last [rule] of s) output
+    ]
+
   ]
   print (word (max [who] of turtles - count AI:states) " searchers used")
   print (word (count AI:states) " states created")
+  print output
+  print path
+  report (list (list xGoal yGoal) output)
+end
 
+
+to-report generate-data-A*
+  let i 0
+  let dat []
+  let result []
+  let test1 generate-data-random
+  print test1
+  foreach test1 [ x ->
+    set result testA* first first x last first x
+    print result
+    if length last result = 3 [
+      set dat lput result dat]
+    print i
+    set i i + 1
+    print dat
+
+  ]
+  report dat
 end
 
 
 ; Auxiliary procedure the highlight the path when it is found. It makes use of reduce procedure with
 ; highlight report
 to highlight-path [path]
+
   foreach path [
     t ->
     ask t [
-      set color red set thickness .4
+      set color red set thickness .8
     ]
   ]
 end
@@ -288,8 +317,8 @@ SLIDER
 num
 num
 10
-50000
-3194.0
+1000
+98.0
 1
 1
 NIL
@@ -326,7 +355,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.1
+0.32
 1.0E-2
 1
 NIL
@@ -472,23 +501,6 @@ normalizationFactor
 1
 NIL
 HORIZONTAL
-
-BUTTON
-658
-189
-727
-222
-NIL
-testA*
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?

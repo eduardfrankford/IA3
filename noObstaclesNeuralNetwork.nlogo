@@ -1,4 +1,4 @@
-__includes ["ANN.nls"]
+__includes ["ANN.nls" "A-star.nls" "LayoutSpace.nls"]
 
 
 globals [
@@ -38,9 +38,10 @@ end
 
 to setup-obstacles
   ; Generation of random obstacles
-  ask patches with [(pycor = 10 and pxcor < 10) or  (pycor < 9 and pxcor = 10)]
+  ask n-of 50 patches with [pxcor != 0 and pycor != 0]
   [
     set pcolor brown
+    ask neighbors [set pcolor brown]
   ]
 
 end
@@ -53,6 +54,7 @@ to-report generate-data
   let input []
   let data []
   let invalidMove false
+  let alreadyInList false
   repeat num [
     set theta0 (random 360)
     set theta1 (random 360)
@@ -75,10 +77,12 @@ to-report generate-data
           set pcolor red
         ]
         print (list input output)
-        set data lput (list input output) data]
+
+          set data lput (list input output) data]
         pen-up
       move-to patch 0 0
     ]
+    set alreadyInList false
     set invalidMove false
     ]
     cd
@@ -90,6 +94,12 @@ to-report generate-data
   output-print data
   report data
 
+
+end
+
+to-report isInput? [input data]
+   foreach data [x -> if first x = input [report true]]
+   report false
 
 end
 
@@ -152,6 +162,79 @@ to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
+
+
+
+
+
+
+
+;A* procedures
+
+
+; Searcher report to compute the heuristic for this searcher
+to-report AI:heuristic [#Goal]
+  report distance patch (first #Goal) (last #Goal)
+end
+
+to-report AI:final-state? [params]
+  report content = params
+end
+
+to-report AI:equal? [a b]
+
+  report a = b
+end
+
+to-report AI:children-states
+  let i 0
+  let states []
+  let start content
+  while [i <= 360] [
+    move-to patch first start last start
+    set heading i
+    forward lenArmSegment
+    set states lput (list (list round xcor round ycor) (list start lenArmSegment i)) states
+    set i i + 30
+  ]
+  report states
+end
+
+
+; Auxiliary procedure to test the A* algorithm for sorting lists
+to testA*
+  ca
+  print (word "Initial State: " "0 0")
+
+  no-display
+  ; We compute the path with A*
+  let path (A* (list 0 0) (list 25 0) True True)
+  print path
+ layout-radial AI:states AI:transitions AI:state 0
+  style
+  display
+  ; if any, we highlight it
+  if path != false [
+    ;repeat 1000 [layout-spring states links 1 3 .3]
+    highlight-path path
+    print (word "Actions to reach point: " (map [ s -> [rule] of s ] path))
+  ]
+  print (word (max [who] of turtles - count AI:states) " searchers used")
+  print (word (count AI:states) " states created")
+
+end
+
+
+; Auxiliary procedure the highlight the path when it is found. It makes use of reduce procedure with
+; highlight report
+to highlight-path [path]
+  foreach path [
+    t ->
+    ask t [
+      set color red set thickness .4
+    ]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -206,7 +289,7 @@ num
 num
 10
 50000
-328.0
+3194.0
 1
 1
 NIL
@@ -258,7 +341,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-175.0
+1025.0
 25
 1
 NIL
@@ -273,7 +356,7 @@ Batch
 Batch
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -389,6 +472,23 @@ normalizationFactor
 1
 NIL
 HORIZONTAL
+
+BUTTON
+658
+189
+727
+222
+NIL
+testA*
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
