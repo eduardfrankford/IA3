@@ -1,4 +1,4 @@
-__includes ["ANN.nls" "A-star.nls" "LayoutSpace.nls"]
+__includes ["ANN.nls"]
 
 
 globals [
@@ -21,7 +21,7 @@ to setup
    move-to (patch 0 0)
   ]
 
-  setup-obstacles
+  ;setup-obstacles
   let data generate-data
   ; Train Dataset
 
@@ -56,9 +56,9 @@ to-report generate-data
   let invalidMove false
   let alreadyInList false
   repeat num [
-    set theta0 (random 360)
-    set theta1 (random 360)
-    set theta2 (random 360)
+    set theta0 (random 90)
+    set theta1 (random 90)
+    set theta2 (random 90)
     set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
    ask turtle 0 [
      pen-down
@@ -167,74 +167,6 @@ end
 
 
 
-
-
-;A* procedures
-
-
-; Searcher report to compute the heuristic for this searcher
-to-report AI:heuristic [#Goal]
-  report distance patch (first #Goal) (last #Goal)
-end
-
-to-report AI:final-state? [params]
-  report content = params
-end
-
-to-report AI:equal? [a b]
-
-  report a = b
-end
-
-to-report AI:children-states
-  let i 0
-  let states []
-  let start content
-  while [i <= 360] [
-    move-to patch first start last start
-    set heading i
-    forward lenArmSegment
-    set states lput (list (list round xcor round ycor) (list start lenArmSegment i)) states
-    set i i + 30
-  ]
-  report states
-end
-
-
-; Auxiliary procedure to test the A* algorithm for sorting lists
-to testA*
-  ca
-  print (word "Initial State: " "0 0")
-
-  no-display
-  ; We compute the path with A*
-  let path (A* (list 0 0) (list 25 0) True True)
-  print path
- layout-radial AI:states AI:transitions AI:state 0
-  style
-  display
-  ; if any, we highlight it
-  if path != false [
-    ;repeat 1000 [layout-spring states links 1 3 .3]
-    highlight-path path
-    print (word "Actions to reach point: " (map [ s -> [rule] of s ] path))
-  ]
-  print (word (max [who] of turtles - count AI:states) " searchers used")
-  print (word (count AI:states) " states created")
-
-end
-
-
-; Auxiliary procedure the highlight the path when it is found. It makes use of reduce procedure with
-; highlight report
-to highlight-path [path]
-  foreach path [
-    t ->
-    ask t [
-      set color red set thickness .4
-    ]
-  ]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -253,10 +185,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-50
--50
-50
+0
+100
+0
+100
 0
 0
 1
@@ -289,7 +221,7 @@ num
 num
 10
 50000
-3194.0
+965.0
 1
 1
 NIL
@@ -303,8 +235,8 @@ SLIDER
 lenArmSegment
 lenArmSegment
 1
-10
-10.0
+30
+30.0
 1
 1
 NIL
@@ -341,7 +273,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-1025.0
+300.0
 25
 1
 NIL
@@ -472,23 +404,6 @@ normalizationFactor
 1
 NIL
 HORIZONTAL
-
-BUTTON
-658
-189
-727
-222
-NIL
-testA*
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?

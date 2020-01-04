@@ -21,7 +21,7 @@ to setup
    move-to (patch 0 0)
   ]
 
-  setup-obstacles
+  ;setup-obstacles
 
   let data generate-data
   ; Train Dataset
@@ -216,7 +216,7 @@ num
 num
 10
 50000
-4786.0
+28985.0
 1
 1
 NIL
@@ -268,7 +268,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-100.0
+25.0
 25
 1
 NIL
