@@ -56,8 +56,8 @@ to setup-a*
   set ystart 0
 
   setup-obstacles
-  ;set data generate-data-random
-  set data generate-data-A*
+  set data generate-data-random
+  ;set data generate-data-A*
   ; Train Dataset
 
   let sdtrain floor (length data) * Train-Test / 100
