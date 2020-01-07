@@ -68,7 +68,7 @@ to-report generate-data
   repeat num [
     set theta0 (random 360)
     set theta1 (theta0 + (random 360)) mod 360
-    set theta2 (theta1 + (random 360)) mod 360
+    set theta2 (theta0 + theta1  (random 360)) mod 360
     set output (list theta0 theta1 theta2)
    ask turtle 0 [
       set originx xcor
@@ -217,7 +217,7 @@ num
 num
 10
 50000
-965.0
+7015.0
 1
 1
 NIL
@@ -254,7 +254,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.1
+0.05
 1.0E-2
 1
 NIL
@@ -269,7 +269,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-900.0
+25.0
 25
 1
 NIL
@@ -311,7 +311,7 @@ INPUTBOX
 194
 302
 Network
-[5 10 3]
+[5 6 3]
 1
 0
 String
