@@ -322,10 +322,10 @@ ticks
 BUTTON
 16
 21
-124
+125
 54
 NIL
-setupRandom
+setup-random
 NIL
 1
 T
@@ -532,10 +532,10 @@ HORIZONTAL
 BUTTON
 129
 21
-207
+210
 54
 NIL
-setupA*
+setup-a*\n
 NIL
 1
 T
