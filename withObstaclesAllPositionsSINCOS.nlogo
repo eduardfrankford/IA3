@@ -7,11 +7,14 @@ globals [
   inputs       ; List with the binary inputs in the training
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
+  data
+  xstart
+  ystart
 ]
 
 
 ; Prepares the world and starting point
-to setup
+to setup-random
   ca
   ask patches [
    set pcolor white
@@ -20,10 +23,11 @@ to setup
   create-turtles 1 [
    move-to (patch 0 0)
   ]
+  set xstart 0
+  set ystart 0
 
-  ;setup-obstacles
-
-  let data generate-data
+  setup-obstacles
+  set data generate-data-random
   ; Train Dataset
 
   let sdtrain floor (length data) * Train-Test / 100
@@ -37,15 +41,16 @@ to setup
 
 end
 
+
 to setup-obstacles
   ; Generation of random obstacles
-  ask n-of 20 patches
+  ask n-of 50 patches with [pxcor != 0 and pycor != 0]
   [
     set pcolor brown
-    ask patches in-radius random 5 [set pcolor brown]
+    ask neighbors [set pcolor brown]
   ]
-;Generation of border in order to show neural network where the field ends
- ask patches with [
+
+   ask patches with [
     pxcor = max-pxcor or
     pxcor = min-pxcor or
     pycor = max-pycor or
@@ -55,59 +60,58 @@ to setup-obstacles
 
 end
 
-to-report generate-data
+to-report generate-data-random
   let theta0 0
   let theta1 0
   let theta2 0
-  let distanceToPoint 0
   let output []
   let input []
-  let data []
-  let originx 0
-  let originy 0
+  set data []
+  let invalidMove false
+  let alreadyInList false
   repeat num [
-    set theta0 (random 180)
-    let dir0 one-of list -1 1
-    set theta1 (random 180)
-    let dir1 one-of list -1 1
-    set theta2 (random 180)
-    let dir2 one-of list -1 1
+    set theta0 random 360
+    set theta1 random 360
+    set theta2 random 360
+    let sin0 sin theta0
+    let cos0 cos theta0
+    let sin1 sin theta1
+    let cos1 cos theta1
+    let sin2 sin theta2
+    let cos2 cos theta2
+    set output map [x -> x / normalizationFactor] (list theta0 theta1 theta2)
+    let outputNORM map [x -> ( (x + 1) / 2)]((list sin0 cos0 sin1 cos1 sin2 cos2))
+   ask turtle 0 [
+     pen-down
+     let xOrigin xcor
+     let yOrigin ycor
+     foreach output [theta -> set heading theta * normalizationFactor
 
-    ask turtle 0 [
-      set originx xcor
-      set originy ycor
-      pen-down
-      set heading theta0
-      ifelse dir0 = 1 [
-        forward lenArmSegment][back lenArmSegment]
-            set heading theta1
-      ifelse dir1 = 1 [
-        forward lenArmSegment][back lenArmSegment]
-            set heading theta2
-      ifelse dir2 = 1 [
-        forward lenArmSegment][back lenArmSegment]
-      set input (list (xcor) (ycor) originx originy)
-      ask patch-here [
-        set pcolor red
+        repeat lenArmSegment [forward 1
+          if [pcolor] of patch-here = brown [
+          set invalidMove true
+            pu
+          ]
+        ]
       ]
-      set theta0 theta0 / 180
-      set theta1 theta1 / 180
-      set theta2 theta2 / 180
-      set dir0 (dir0 + 1) / 2
-      set dir1 (dir1 + 1) / 2
-      set dir2 (dir2 + 1) / 2
-      set output (list theta0 dir0 theta1 dir1 theta2 dir2)
+      set input (list xOrigin yOrigin (xcor) (ycor))
+      if invalidMove = false [
+        ask patch-here [
+          set pcolor red
+        ]
+        print (list input output)
 
-      set data lput (list input output) data
-      pen-up
+          set data lput (list input outputNORM) data]
+        pen-up
       move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
-      set output []
     ]
+    set alreadyInList false
+    set invalidMove false
     ]
     cd
 
   wait 2
-  ask patches [
+  ask patches with [pcolor != brown ] [
    set pcolor white
   ]
   output-print data
@@ -116,28 +120,28 @@ to-report generate-data
 
 end
 
-to test-visualize [input]
-  let x item 0 input
-  let y item 1 input
-  let originx item 2 input
-  let originy item 3 input
-  ask patch x y [set pcolor red]
-  let result ANN:compute (list x y originx originy)
+to-report isInput? [input datas]
+   foreach datas [x -> if first x = input [report true]]
+   report false
+
+end
+
+to test-visualize [result]
+  let xOrigin item 0 result
+  let yOrigin item 1 result
+  let xGoal item 2 result
+  let yGoal item 3 result
+  ask patch xGoal yGoal [set pcolor red]
+  let computed ANN:compute (list xOrigin yOrigin xGoal yGoal)
+  print word "result " computed
    ask turtle 0 [
-    move-to patch originx originy
+     move-to patch xOrigin yOrigin
      pen-down
-    set heading (item 0 result * normalizationFactor)
-    let dir item 1 result
-    ifelse dir > 0.5 [
-      forward lenArmSegment][back lenArmSegment]
-        set heading (item 2 result * normalizationFactor)
-    set dir item 3 result
-    ifelse dir > 0.5 [
-      forward lenArmSegment][back lenArmSegment]
-        set heading (item 4 result * normalizationFactor)
-    set dir item 5 result
-    ifelse dir > 0.5 [
-      forward lenArmSegment][back lenArmSegment]
+     let i 0
+    while [i < (length computed)] [set heading atan ((item i computed) * 2 + 1) ((item (i + 1) computed)* 2 + 1)
+      forward lenArmSegment
+      set i i + 2
+    ]
     pu
     ask patch-here [set pcolor blue]
           move-to patch 0 0
@@ -151,7 +155,7 @@ to visualize-random-samples
     let result item (random (length data-test)) data-test
     test-visualize first result
     wait 2
-    ask patches [ set pcolor white]
+    ask patches with [pcolor != brown] [ set pcolor white]
     cd
   ]
 end
@@ -189,13 +193,6 @@ to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
-
-to-report minDisDegree [alpha beta]
-  let dis (alpha - beta) mod 360
-  let mindis min list (360 - dis) dis
-  report mindis
-
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -227,10 +224,10 @@ ticks
 BUTTON
 16
 21
-79
+125
 54
 NIL
-setup
+setup-random
 NIL
 1
 T
@@ -249,8 +246,8 @@ SLIDER
 num
 num
 10
-5000
-519.0
+1000
+508.0
 1
 1
 NIL
@@ -302,7 +299,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-850.0
+1025.0
 25
 1
 NIL
@@ -317,7 +314,7 @@ Batch
 Batch
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -420,19 +417,39 @@ NIL
 1
 
 SLIDER
-397
-480
-569
-513
+390
+489
+562
+522
 normalizationFactor
 normalizationFactor
 180
-1080
+720
 180.0
 360
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+665
+211
+815
+229
+NIL
+11
+0.0
+1
+
+TEXTBOX
+663
+203
+813
+431
+1. Press setup-random to generate test data\n\n2. Press train to train neural network\n\n3. Press visualize-random-samples to try trained neural network with some random test data
+15
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?

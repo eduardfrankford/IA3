@@ -50,6 +50,14 @@ to setup-obstacles
     ask neighbors [set pcolor brown]
   ]
 
+   ask patches with [
+    pxcor = max-pxcor or
+    pxcor = min-pxcor or
+    pycor = max-pycor or
+    pycor = min-pycor ] [
+    set pcolor brown ;; This setup a red perimeter
+  ]
+
 end
 
 to-report generate-data-random
@@ -62,10 +70,10 @@ to-report generate-data-random
   let invalidMove false
   let alreadyInList false
   repeat num [
-    set theta0 (random 360)
-    set theta1 (random 360)
-    set theta2 (random 360)
-    set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
+    set theta0 (random 180) mod 180
+    set theta1 (theta0 + (random 180)) mod 180
+    set theta2 (theta1 + (random 180)) mod 180
+    set output map [x -> ( x / normalizationFactor)]((list theta0 theta1 theta2))
    ask turtle 0 [
      pen-down
      let xOrigin xcor
@@ -229,7 +237,7 @@ num
 num
 10
 1000
-142.0
+250.0
 1
 1
 NIL
@@ -266,7 +274,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.32
+0.1
 1.0E-2
 1
 NIL
@@ -405,13 +413,33 @@ SLIDER
 522
 normalizationFactor
 normalizationFactor
-360
+180
 720
-360.0
+180.0
 360
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+665
+211
+815
+229
+NIL
+11
+0.0
+1
+
+TEXTBOX
+663
+203
+813
+431
+1. Press setup-random to generate test data\n\n2. Press train to train neural network\n\n3. Press visualize-random-samples to try trained neural network with some random test data
+15
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?

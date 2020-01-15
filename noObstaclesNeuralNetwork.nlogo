@@ -59,7 +59,7 @@ to-report generate-data
     set theta0 (random 90)
     set theta1 random 90
     set theta2 random 90
-    set output (list theta0 theta1 theta2)
+    set output (sort (list theta0 theta1 theta2))
    ask turtle 0 [
      pen-down
      foreach output [theta -> set heading theta
@@ -170,7 +170,6 @@ to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
-
 
 
 
