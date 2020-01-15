@@ -1,4 +1,4 @@
-__includes ["ANN.nls" "A-star.nls" "LayoutSpace.nls"]
+__includes ["ANN.nls"]
 
 
 globals [
@@ -28,7 +28,6 @@ to setup-random
 
   setup-obstacles
   set data generate-data-random
-  ;set data generate-data-A*
   ; Train Dataset
 
   let sdtrain floor (length data) * Train-Test / 100
@@ -42,32 +41,6 @@ to setup-random
 
 end
 
-
-to setup-a*
-    ca
-  ask patches [
-   set pcolor white
-  ]
-
-  create-turtles 1 [
-   move-to (patch 0 0)
-  ]
-  set xstart 0
-  set ystart 0
-
-  setup-obstacles
-  ;set data generate-data-random
-  set data generate-data-A*
-  ; Train Dataset
-
-  let sdtrain floor (length data) * Train-Test / 100
-
-  set data-train sublist data 0 sdtrain
-
-  ; Test Dataset
-  set data-test sublist data sdtrain (length data)
-  ANN:create read-from-string Network
-end
 
 to setup-obstacles
   ; Generation of random obstacles
@@ -195,102 +168,6 @@ to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
-
-
-
-
-
-
-
-;A* procedures
-
-
-; Searcher report to compute the heuristic for this searcher
-to-report AI:heuristic [#Goal]
-  report distance patch (first #Goal) (last #Goal)
-end
-
-to-report AI:final-state? [params]
-  ;let dist 100000
-  ;ask turtle 0 [move-to patch (first content) (last content)
-  ; set dist distance patch first params last params
-  ;]
-
-  report params = content
-end
-
-to-report AI:equal? [a b]
-
-  report abs sum (map - a b) < 1
-end
-
-to-report AI:children-states
-  let i 0
-  let states []
-  let start content
-  while [i < 360] [
-    move-to patch first start last start
-    set heading i
-    forward lenArmSegment
-    if distance patch xstart ystart <= lenArmSegment * 3 [
-      set states lput (list (list xcor ycor) (list start lenArmSegment i)) states]
-    set i i + 1
-  ]
-  ;print states
-  report states
-end
-
-
-; Auxiliary procedure to test the A* algorithm for sorting lists
-to-report testA* [xGoal yGoal]
-  let output []
-  ; We compute the path with A*
-  let path (A* (list xStart yStart) (list xGoal yGoal) False False)
-  if path != false [
-    print (word "Actions to reach point: " (map [ s -> [rule] of s ] path))
-    foreach path [s -> set output lput (last [rule] of s) output
-    ]
-
-  ]
-  print (word (max [who] of turtles - count AI:states) " searchers used")
-  print (word (count AI:states) " states created")
-  print output
-  print path
-  report (list (list xGoal yGoal) output)
-end
-
-
-to-report generate-data-A*
-  let i 0
-  let dat []
-  let result []
-  let test1 generate-data-random
-  print test1
-  foreach test1 [ x ->
-    set result testA* first first x last first x
-    print result
-    if length last result = 3 [
-      set dat lput result dat]
-    print i
-    set i i + 1
-    print dat
-
-  ]
-  report dat
-end
-
-
-; Auxiliary procedure the highlight the path when it is found. It makes use of reduce procedure with
-; highlight report
-to highlight-path [path]
-
-  foreach path [
-    t ->
-    ask t [
-      set color red set thickness .8
-    ]
-  ]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -345,7 +222,7 @@ num
 num
 10
 1000
-98.0
+521.0
 1
 1
 NIL
@@ -523,28 +400,11 @@ normalizationFactor
 normalizationFactor
 360
 720
-720.0
+360.0
 360
 1
 NIL
 HORIZONTAL
-
-BUTTON
-129
-21
-210
-54
-NIL
-setup-a*\n
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?

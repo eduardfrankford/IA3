@@ -66,24 +66,42 @@ to-report generate-data
   let originx 0
   let originy 0
   repeat num [
-    set theta0 (random 360)
-    set theta1 (theta0 + (random 360)) mod 360
-    set theta2 (theta1 + (random 360)) mod 360
-    set output (list theta0 theta1 theta2)
-   ask turtle 0 [
+    set theta0 (random 180)
+    let dir0 one-of list -1 1
+    set theta1 (random 180)
+    let dir1 one-of list -1 1
+    set theta2 (random 180)
+    let dir2 one-of list -1 1
+
+    ask turtle 0 [
       set originx xcor
       set originy ycor
       pen-down
-     foreach output [theta -> set heading theta
-      forward lenArmSegment]
-      set input (list (xcor) (ycor) originx originy (distance patch originx originy))
+      set heading theta0
+      ifelse dir0 = 1 [
+        forward lenArmSegment][back lenArmSegment]
+            set heading theta1
+      ifelse dir1 = 1 [
+        forward lenArmSegment][back lenArmSegment]
+            set heading theta2
+      ifelse dir2 = 1 [
+        forward lenArmSegment][back lenArmSegment]
+      set input (list (xcor) (ycor) originx originy)
       ask patch-here [
         set pcolor red
       ]
-      set output map [x -> x / normalizationFactor] output
+      set theta0 theta0 / 360
+      set theta1 theta1 / 360
+      set theta2 theta2 / 360
+      set dir0 (dir0 + 1) / 2
+      set dir1 (dir1 + 1) / 2
+      set dir2 (dir2 + 1) / 2
+      set output (list theta0 dir0 theta1 dir1 theta2 dir2)
+
       set data lput (list input output) data
       pen-up
       move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
+      set output []
     ]
     ]
     cd
@@ -103,15 +121,23 @@ to test-visualize [input]
   let y item 1 input
   let originx item 2 input
   let originy item 3 input
-  let dist item 4 input
   ask patch x y [set pcolor red]
-  let result ANN:compute (list x y originx originy dist)
+  let result ANN:compute (list x y originx originy)
    ask turtle 0 [
     move-to patch originx originy
      pen-down
-    foreach result [theta -> set heading theta * normalizationFactor
-      forward lenArmSegment
-    ]
+    set heading (item 0 result * normalizationFactor)
+    let dir item 1 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
+        set heading (item 2 result * normalizationFactor)
+    set dir item 3 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
+        set heading (item 4 result * normalizationFactor)
+    set dir item 5 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
     pu
     ask patch-here [set pcolor blue]
           move-to patch 0 0
@@ -162,6 +188,13 @@ end
 to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
+end
+
+to-report minDisDegree [alpha beta]
+  let dis (alpha - beta) mod 360
+  let mindis min list (360 - dis) dis
+  report mindis
+
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -217,7 +250,7 @@ num
 num
 10
 50000
-1284.0
+1920.0
 1
 1
 NIL
@@ -269,7 +302,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-200.0
+850.0
 25
 1
 NIL
@@ -299,7 +332,7 @@ Train-Test
 Train-Test
 0
 100
-85.0
+80.0
 1
 1
 %
@@ -311,7 +344,7 @@ INPUTBOX
 194
 302
 Network
-[5 10 3]
+[4 10 6]
 1
 0
 String

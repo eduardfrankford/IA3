@@ -57,13 +57,12 @@ to-report generate-data
   let alreadyInList false
   repeat num [
     set theta0 (random 90)
-    set theta1 (random 90)
-    set theta2 (random 90)
-    set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
+    set theta1 random 90
+    set theta2 random 90
+    set output (list theta0 theta1 theta2)
    ask turtle 0 [
      pen-down
-     foreach output [theta -> set heading theta * normalizationFactor
-
+     foreach output [theta -> set heading theta
         repeat lenArmSegment [forward 1
           if [pcolor] of patch-here = brown [
           set invalidMove true
@@ -76,8 +75,10 @@ to-report generate-data
         ask patch-here [
           set pcolor red
         ]
-        print (list input output)
 
+        print (list input output)
+        set output map [x ->
+          x / normalizationFactor] output
           set data lput (list input output) data]
         pen-up
       move-to patch 0 0
@@ -97,6 +98,13 @@ to-report generate-data
 
 end
 
+
+to-report minDisDegree [alpha beta]
+  let dis (alpha - beta) mod 360
+  let mindis min list (360 - dis) dis
+  report mindis
+
+end
 to-report isInput? [input data]
    foreach data [x -> if first x = input [report true]]
    report false
@@ -166,7 +174,6 @@ end
 
 
 
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -220,8 +227,8 @@ SLIDER
 num
 num
 10
-50000
-965.0
+10000
+1283.0
 1
 1
 NIL
@@ -236,7 +243,7 @@ lenArmSegment
 lenArmSegment
 1
 30
-30.0
+20.0
 1
 1
 NIL
@@ -258,7 +265,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.1
+0.05
 1.0E-2
 1
 NIL
@@ -273,7 +280,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-300.0
+1050.0
 25
 1
 NIL
@@ -399,7 +406,7 @@ normalizationFactor
 normalizationFactor
 360
 720
-720.0
+360.0
 360
 1
 NIL
