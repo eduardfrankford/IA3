@@ -78,6 +78,19 @@ This already helped but didn't bring the expected results therefore an other opt
 
 This is also a possibility to avoid this negative property of [0,360] representation but still it did not help the neural network learning better.
 
+```netlogo
+    set theta0 random 360
+    set theta1 random 360
+    set theta2 random 360
+    let sin0 sin theta0
+    let cos0 cos theta0
+    let sin1 sin theta1
+    let cos1 cos theta1
+    let sin2 sin theta2
+    let cos2 cos theta2
+    set output map [x -> x / normalizationFactor] (list theta0 theta1 theta2)
+    let outputNORM map [x -> ( (x + 1) / 2)]((list sin0 cos0 sin1 cos1 sin2 cos2))
+```
 
 
 
@@ -108,6 +121,12 @@ Solutions
 
 1. Change representation to 180 degrees or (sin,cos) pair.
 2. Sort output in order to let neuron1 be small, neuron2 be medium and neuron3 be large.
+
+
+### Possible further steps
+
+In order to make the robot better it might be useful not to give him three thetas as a output but only one. Like this we could make the neural network generate one theta then make the step, generate one theta make the step and so on. As a result the robot would be able to move much more precisely.
+Or maybe stop using neural networks for this problem and go on with self organizing maps, but this is a topic for an other practica.
 
 
 
