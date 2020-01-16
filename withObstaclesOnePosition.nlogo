@@ -7,11 +7,14 @@ globals [
   inputs       ; List with the binary inputs in the training
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
+  data
+  xstart
+  ystart
 ]
 
 
 ; Prepares the world and starting point
-to setup
+to setup-random
   ca
   ask patches [
    set pcolor white
@@ -20,10 +23,11 @@ to setup
   create-turtles 1 [
    move-to (patch 0 0)
   ]
+  set xstart 0
+  set ystart 0
 
-  ;setup-obstacles
-
-  let data generate-data
+  setup-obstacles
+  set data generate-data-random
   ; Train Dataset
 
   let sdtrain floor (length data) * Train-Test / 100
@@ -37,59 +41,60 @@ to setup
 
 end
 
+
 to setup-obstacles
   ; Generation of random obstacles
-  ask n-of 20 patches
+  ask n-of 50 patches with [pxcor != 0 and pycor != 0]
   [
     set pcolor brown
-    ask patches in-radius random 5 [set pcolor brown]
-  ]
-;Generation of border in order to show neural network where the field ends
- ask patches with [
-    pxcor = max-pxcor or
-    pxcor = min-pxcor or
-    pycor = max-pycor or
-    pycor = min-pycor ] [
-    set pcolor brown ;; This setup a red perimeter
+    ask neighbors [set pcolor brown]
   ]
 
 end
 
-to-report generate-data
+to-report generate-data-random
   let theta0 0
   let theta1 0
   let theta2 0
-  let distanceToPoint 0
   let output []
   let input []
-  let data []
-  let originx 0
-  let originy 0
+  set data []
+  let invalidMove false
+  let alreadyInList false
   repeat num [
     set theta0 (random 360)
-    set theta1 (theta0 + (random 360)) mod 360
-    set theta2 (theta1 + (random 360)) mod 360
-    set output (list theta0 theta1 theta2)
+    set theta1 (random 360)
+    set theta2 (random 360)
+    set output map [x -> ( x / normalizationFactor)](sort (list theta0 theta1 theta2))
    ask turtle 0 [
-      set originx xcor
-      set originy ycor
-      pen-down
-     foreach output [theta -> set heading theta
-      forward lenArmSegment]
-      set input (list (xcor) (ycor) originx originy (distance patch originx originy))
-      ask patch-here [
-        set pcolor red
+     pen-down
+     foreach output [theta -> set heading theta * normalizationFactor
+
+        repeat lenArmSegment [forward 1
+          if [pcolor] of patch-here = brown [
+          set invalidMove true
+            pu
+          ]
+        ]
       ]
-      set output map [x -> x / normalizationFactor] output
-      set data lput (list input output) data
-      pen-up
-      move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
+      set input (list (xcor) (ycor))
+      if invalidMove = false [
+        ask patch-here [
+          set pcolor red
+        ]
+        print (list input output)
+
+          set data lput (list input output) data]
+        pen-up
+      move-to patch 0 0
     ]
+    set alreadyInList false
+    set invalidMove false
     ]
     cd
 
   wait 2
-  ask patches [
+  ask patches with [pcolor != brown ] [
    set pcolor white
   ]
   output-print data
@@ -98,18 +103,18 @@ to-report generate-data
 
 end
 
-to test-visualize [input]
-  let x item 0 input
-  let y item 1 input
-  let originx item 2 input
-  let originy item 3 input
-  let dist item 4 input
+to-report isInput? [input datas]
+   foreach datas [x -> if first x = input [report true]]
+   report false
+
+end
+
+to test-visualize [x y]
   ask patch x y [set pcolor red]
-  let result ANN:compute (list x y originx originy dist)
+  let result ANN:compute list x y
    ask turtle 0 [
-    move-to patch originx originy
      pen-down
-    foreach result [theta -> set heading theta * normalizationFactor
+     foreach result [theta -> set heading theta * normalizationFactor
       forward lenArmSegment
     ]
     pu
@@ -123,9 +128,9 @@ end
 to visualize-random-samples
   repeat 5 [
     let result item (random (length data-test)) data-test
-    test-visualize first result
+    test-visualize first (first result) last (first result)
     wait 2
-    ask patches [ set pcolor white]
+    ask patches with [pcolor != brown] [ set pcolor white]
     cd
   ]
 end
@@ -194,10 +199,10 @@ ticks
 BUTTON
 16
 21
-79
+125
 54
 NIL
-setup
+setup-random
 NIL
 1
 T
@@ -216,8 +221,8 @@ SLIDER
 num
 num
 10
-50000
-1284.0
+1000
+521.0
 1
 1
 NIL
@@ -254,7 +259,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.1
+0.32
 1.0E-2
 1
 NIL
@@ -269,7 +274,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-200.0
+1025.0
 25
 1
 NIL
@@ -284,7 +289,7 @@ Batch
 Batch
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -299,7 +304,7 @@ Train-Test
 Train-Test
 0
 100
-85.0
+80.0
 1
 1
 %
@@ -311,7 +316,7 @@ INPUTBOX
 194
 302
 Network
-[5 10 3]
+[2 10 3]
 1
 0
 String
@@ -387,14 +392,14 @@ NIL
 1
 
 SLIDER
-397
-480
-569
-513
+390
+489
+562
+522
 normalizationFactor
 normalizationFactor
 360
-1080
+720
 360.0
 360
 1

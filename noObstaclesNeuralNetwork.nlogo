@@ -21,6 +21,7 @@ to setup
    move-to (patch 0 0)
   ]
 
+  ;setup-obstacles
   let data generate-data
   ; Train Dataset
 
@@ -35,6 +36,16 @@ to setup
 
 end
 
+to setup-obstacles
+  ; Generation of random obstacles
+  ask n-of 50 patches with [pxcor != 0 and pycor != 0]
+  [
+    set pcolor brown
+    ask neighbors [set pcolor brown]
+  ]
+
+end
+
 to-report generate-data
   let theta0 0
   let theta1 0
@@ -42,34 +53,43 @@ to-report generate-data
   let output []
   let input []
   let data []
-  let length0 0
-  let length1 0
-  let length2 0
-
+  let invalidMove false
+  let alreadyInList false
   repeat num [
-    set theta0 (random 360)
-    set theta1 (random 360)
-    set theta2 (random 360)
-    set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
+    set theta0 (random 90)
+    set theta1 random 90
+    set theta2 random 90
+    set output (sort (list theta0 theta1 theta2))
    ask turtle 0 [
      pen-down
-     foreach output [theta -> set heading theta * 360
-      forward lenArmSegment
+     foreach output [theta -> set heading theta
+        repeat lenArmSegment [forward 1
+          if [pcolor] of patch-here = brown [
+          set invalidMove true
+            pu
+          ]
+        ]
       ]
       set input (list (xcor) (ycor))
-      ask patch-here [
-        set pcolor red
-      ]
-      print (list input output)
-      set data lput (list input output) data
-      pen-up
+      if invalidMove = false [
+        ask patch-here [
+          set pcolor red
+        ]
+
+        print (list input output)
+        set output map [x ->
+          x / normalizationFactor] output
+          set data lput (list input output) data]
+        pen-up
       move-to patch 0 0
     ]
+    set alreadyInList false
+    set invalidMove false
     ]
     cd
 
   wait 2
-  ask patches [
+  ask patches with [pcolor != brown ] [
    set pcolor white
   ]
   output-print data
@@ -78,12 +98,25 @@ to-report generate-data
 
 end
 
+
+to-report minDisDegree [alpha beta]
+  let dis (alpha - beta) mod 360
+  let mindis min list (360 - dis) dis
+  report mindis
+
+end
+to-report isInput? [input data]
+   foreach data [x -> if first x = input [report true]]
+   report false
+
+end
+
 to test-visualize [x y]
   ask patch x y [set pcolor red]
   let result ANN:compute list x y
    ask turtle 0 [
      pen-down
-     foreach result [theta -> set heading theta * 360
+     foreach result [theta -> set heading theta * normalizationFactor
       forward lenArmSegment
     ]
     pu
@@ -99,7 +132,7 @@ to visualize-random-samples
     let result item (random (length data-test)) data-test
     test-visualize first (first result) last (first result)
     wait 2
-    ask patches [ set pcolor white]
+    ask patches with [pcolor != brown] [ set pcolor white]
     cd
   ]
 end
@@ -137,6 +170,9 @@ to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
 end
+
+
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -155,10 +191,10 @@ GRAPHICS-WINDOW
 0
 0
 1
--50
-50
--50
-50
+0
+100
+0
+100
 0
 0
 1
@@ -190,8 +226,8 @@ SLIDER
 num
 num
 10
-50000
-1920.0
+10000
+1283.0
 1
 1
 NIL
@@ -205,8 +241,8 @@ SLIDER
 lenArmSegment
 lenArmSegment
 1
-10
-10.0
+30
+20.0
 1
 1
 NIL
@@ -243,7 +279,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-100.0
+1050.0
 25
 1
 NIL
@@ -258,7 +294,7 @@ Batch
 Batch
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -273,7 +309,7 @@ Train-Test
 Train-Test
 0
 100
-85.0
+80.0
 1
 1
 %
@@ -359,6 +395,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+390
+489
+562
+522
+normalizationFactor
+normalizationFactor
+360
+720
+360.0
+360
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

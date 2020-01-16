@@ -21,6 +21,8 @@ to setup
    move-to (patch 0 0)
   ]
 
+  ;setup-obstacles
+
   let data generate-data
   ; Train Dataset
 
@@ -35,39 +37,71 @@ to setup
 
 end
 
+to setup-obstacles
+  ; Generation of random obstacles
+  ask n-of 20 patches
+  [
+    set pcolor brown
+    ask patches in-radius random 5 [set pcolor brown]
+  ]
+;Generation of border in order to show neural network where the field ends
+ ask patches with [
+    pxcor = max-pxcor or
+    pxcor = min-pxcor or
+    pycor = max-pycor or
+    pycor = min-pycor ] [
+    set pcolor brown ;; This setup a red perimeter
+  ]
+
+end
+
 to-report generate-data
   let theta0 0
   let theta1 0
   let theta2 0
+  let distanceToPoint 0
   let output []
   let input []
   let data []
-  let length0 0
-  let length1 0
-  let length2 0
   let originx 0
   let originy 0
-
   repeat num [
-    set theta0 (random 360)
-    set theta1 (random 360)
-    set theta2 (random 360)
-    set output map [x -> ( x / 360)](sort (list theta0 theta1 theta2))
-   ask turtle 0 [
+    set theta0 (random 180)
+    let dir0 one-of list -1 1
+    set theta1 (random 180)
+    let dir1 one-of list -1 1
+    set theta2 (random 180)
+    let dir2 one-of list -1 1
+
+    ask turtle 0 [
       set originx xcor
       set originy ycor
-     pen-down
-     foreach output [theta -> set heading theta * 360
-      forward lenArmSegment
-      ]
+      pen-down
+      set heading theta0
+      ifelse dir0 = 1 [
+        forward lenArmSegment][back lenArmSegment]
+            set heading theta1
+      ifelse dir1 = 1 [
+        forward lenArmSegment][back lenArmSegment]
+            set heading theta2
+      ifelse dir2 = 1 [
+        forward lenArmSegment][back lenArmSegment]
       set input (list (xcor) (ycor) originx originy)
       ask patch-here [
         set pcolor red
       ]
-      print (list input output)
+      set theta0 theta0 / 180
+      set theta1 theta1 / 180
+      set theta2 theta2 / 180
+      set dir0 (dir0 + 1) / 2
+      set dir1 (dir1 + 1) / 2
+      set dir2 (dir2 + 1) / 2
+      set output (list theta0 dir0 theta1 dir1 theta2 dir2)
+
       set data lput (list input output) data
       pen-up
       move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
+      set output []
     ]
     ]
     cd
@@ -88,13 +122,22 @@ to test-visualize [input]
   let originx item 2 input
   let originy item 3 input
   ask patch x y [set pcolor red]
-  let result ANN:compute list x y
+  let result ANN:compute (list x y originx originy)
    ask turtle 0 [
     move-to patch originx originy
      pen-down
-     foreach result [theta -> set heading theta * 360
-      forward lenArmSegment
-    ]
+    set heading (item 0 result * normalizationFactor)
+    let dir item 1 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
+        set heading (item 2 result * normalizationFactor)
+    set dir item 3 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
+        set heading (item 4 result * normalizationFactor)
+    set dir item 5 result
+    ifelse dir > 0.5 [
+      forward lenArmSegment][back lenArmSegment]
     pu
     ask patch-here [set pcolor blue]
           move-to patch 0 0
@@ -106,7 +149,7 @@ end
 to visualize-random-samples
   repeat 5 [
     let result item (random (length data-test)) data-test
-    test-visualize first data-tes
+    test-visualize first result
     wait 2
     ask patches [ set pcolor white]
     cd
@@ -145,6 +188,13 @@ end
 to-report discretize [x]
   let mmax max x
   report map [ i -> ifelse-value (i = mmax) [1][0]] x
+end
+
+to-report minDisDegree [alpha beta]
+  let dis (alpha - beta) mod 360
+  let mindis min list (360 - dis) dis
+  report mindis
+
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -199,8 +249,8 @@ SLIDER
 num
 num
 10
-50000
-1920.0
+5000
+519.0
 1
 1
 NIL
@@ -237,7 +287,7 @@ Learning-rate
 Learning-rate
 0
 1
-0.05
+0.1
 1.0E-2
 1
 NIL
@@ -252,7 +302,7 @@ Number-of-epochs
 Number-of-epochs
 0
 2000
-100.0
+850.0
 25
 1
 NIL
@@ -282,7 +332,7 @@ Train-Test
 Train-Test
 0
 100
-85.0
+80.0
 1
 1
 %
@@ -294,7 +344,7 @@ INPUTBOX
 194
 302
 Network
-[4 10 3]
+[4 10 6]
 1
 0
 String
@@ -368,6 +418,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+397
+480
+569
+513
+normalizationFactor
+normalizationFactor
+180
+1080
+180.0
+360
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
