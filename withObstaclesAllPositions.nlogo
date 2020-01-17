@@ -8,8 +8,6 @@ globals [
   outputs      ; List with the binary output in the training
   epoch-error  ; error in every epoch during training
   data
-  xstart
-  ystart
 ]
 
 
@@ -20,22 +18,20 @@ to setup-random
    set pcolor white
   ]
 
-  create-turtles 1 [
+  create-turtles 1 [ ; creates turtle which will be moved around in order to visualize procedures
    move-to (patch 0 0)
   ]
-  set xstart 0
-  set ystart 0
-
-  setup-obstacles
-  set data generate-data-random
+  setup-obstacles ;sets up obstacles in the world
+  set data generate-data-random ; generates the training and test data
   ; Train Dataset
 
-  let sdtrain floor (length data) * Train-Test / 100
-
+  let sdtrain floor (length data) * Train-Test / 100 ; divides training and test data
   set data-train sublist data 0 sdtrain
 
   ; Test Dataset
   set data-test sublist data sdtrain (length data)
+
+  ;Creates Neural Network read from User
   ANN:create read-from-string Network
 
 
@@ -43,6 +39,7 @@ end
 
 
 to setup-obstacles
+
   ; Generation of random obstacles
   ask n-of 50 patches with [pxcor != 0 and pycor != 0]
   [
@@ -50,6 +47,7 @@ to setup-obstacles
     ask neighbors [set pcolor brown]
   ]
 
+  ;Make a border around the world
    ask patches with [
     pxcor = max-pxcor or
     pxcor = min-pxcor or
@@ -61,41 +59,44 @@ to setup-obstacles
 end
 
 to-report generate-data-random
-  let theta0 0
-  let theta1 0
-  let theta2 0
-  let output []
   let input []
   set data []
   let invalidMove false
   let alreadyInList false
   repeat num [
-    set theta0 (random 180) mod 180
-    set theta1 (theta0 + (random 180)) mod 180
-    set theta2 (theta1 + (random 180)) mod 180
-    set output map [x -> ( x / normalizationFactor)]((list theta0 theta1 theta2))
+
+    ;Generate 3 random thetas, but each depending on the one before
+    let theta0 (random 180) mod 180
+    let theta1 (theta0 + (random 180)) mod 180
+    let theta2 (theta1 + (random 180)) mod 180
+
+    ;Set the output to the list of the thetas but normalized by the normalizationFactor
+    let output map [x -> ( x / normalizationFactor)]((list theta0 theta1 theta2))
+
+    ;Now let a turtle follow the thetas and draw the way therefore we can see the generated data and at the end
+    ;when the turtle has reached the end position, we can take the end position as an input for the thetas
    ask turtle 0 [
      pen-down
      let xOrigin xcor
      let yOrigin ycor
      foreach output [theta -> set heading theta * normalizationFactor
-
-        repeat lenArmSegment [forward 1
+        repeat lenArmSegment [
+          forward 1
           if [pcolor] of patch-here = brown [
-          set invalidMove true
+            set invalidMove true
             pu
           ]
         ]
       ]
       set input (list xOrigin yOrigin (xcor) (ycor))
+
       if invalidMove = false [
         ask patch-here [
           set pcolor red
         ]
-        print (list input output)
-
-          set data lput (list input output) data]
-        pen-up
+        ;print (list input output)
+        set data lput (list input output) data]
+      pen-up
       move-to patch (random max-pxcor - random max-pxcor) (random max-pycor - random max-pycor)
     ]
     set alreadyInList false
@@ -103,6 +104,7 @@ to-report generate-data-random
     ]
     cd
 
+  ;let the visualization disappear
   wait 2
   ask patches with [pcolor != brown ] [
    set pcolor white
@@ -113,28 +115,28 @@ to-report generate-data-random
 
 end
 
-to-report isInput? [input datas]
-   foreach datas [x -> if first x = input [report true]]
-   report false
 
-end
-
+;method which shows some random samples after the network has been trained
 to test-visualize [result]
+
   let xOrigin item 0 result
   let yOrigin item 1 result
   let xGoal item 2 result
   let yGoal item 3 result
   ask patch xGoal yGoal [set pcolor red]
+
   let computed ANN:compute (list xOrigin yOrigin xGoal yGoal)
-   ask turtle 0 [
+
+  ask turtle 0 [
      move-to patch xOrigin yOrigin
      pen-down
      foreach computed [theta -> set heading theta * normalizationFactor
       forward lenArmSegment
     ]
+
     pu
     ask patch-here [set pcolor blue]
-          move-to patch 0 0
+      move-to patch 0 0
 
   ]
 
@@ -150,10 +152,6 @@ to visualize-random-samples
   ]
 end
 
-to-report cat-to-bin [v L]
-  let pos position v L
-  report replace-item pos (n-values (length L) [0]) 1
-end
 
 ; Plot the train error in every step
 to ANN:external-update [params]
@@ -164,7 +162,6 @@ to ANN:external-update [params]
 end
 
 ;;; Train and Test Procedures
-
 to train
   ANN:train number-of-epochs Batch data-test Learning-rate
 end
