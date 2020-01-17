@@ -46,6 +46,7 @@ Speciality: added two input neurons in order to represent current position, degr
 #### Rest of the files
 <p style="text-align:justify">Have been some changes in representations, which will be explained in the following.
 
+## Important file to grade -> withObstaclesAllPositions.nlogo
 
 ### Important functions
 
